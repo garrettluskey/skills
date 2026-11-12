@@ -1,0 +1,4 @@
+interface:
+  display_name: "Quality Vibe Review"
+  short_description: "Score a PR 1-10 across eight quality categories with parallel Sol reviewers"
+  default_prompt: "Use $quality-vibe-review to score this PR."

@@ -6,7 +6,7 @@ Agent skills that work in any harness that loads `SKILL.md` skills, including Cl
 
 | Skill | What it does |
 |---|---|
-| `quality-vibe-review` | Scores a GitHub PR 1-10 on architecture, readability, maintainability, coupling, cohesion, testability, test quality and error handling. One subagent per category reports a score and what would make it a 10. The findings are audited, then posted as a single `COMMENT` review with inline comments. It never approves or blocks. |
+| `quality-vibe-review` | Scores a GitHub PR, or with no PR given the local changes in the current repo, 1-10 on architecture, readability, maintainability, coupling, cohesion, testability, test quality and error handling. One subagent per category reports a score and what would make it a 10. The findings are audited, then posted to the PR as a single `COMMENT` review with inline comments, or written to a local report. It never approves or blocks. |
 
 ## Installing a skill
 

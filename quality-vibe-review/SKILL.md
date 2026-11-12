@@ -19,9 +19,7 @@ This scores code quality. It is not a bug hunt and not a merge gate: it never ap
   |---|---|---|
   | Claude Code | `Agent` | `opus` |
   | Codex | `spawn_agent` | `gpt-6.1-sol` |
-  | Anything else | its subagent tool | its strongest available model |
-
-  On Claude Code, Opus beat Sonnet here. On one PR, about half of the Sonnet reviewers' items needed fixing or dropping, against about a third for Opus, and Opus found more real issues. With no subagent tool, run the eight lenses yourself, one at a time, each as a separate pass with only its own lens in mind.
+  | Anything else | its subagent tool | same, specified, or by memory |
 
 ## 1. Load the PR
 

@@ -1,6 +1,6 @@
 # skills
 
-Agent skills for Claude Code and Codex. Each skill has a Claude version under `claude/` and a Codex version under `codex/`. The two differ only in how they start subagents and where they look for their own files.
+Agent skills that work in any harness that loads `SKILL.md` skills, including Claude Code and Codex. Each skill describes what it needs (subagents, a model, file paths) in terms any agent can map to its own tools, so there is one copy per skill.
 
 ## Skills
 
@@ -10,18 +10,29 @@ Agent skills for Claude Code and Codex. Each skill has a Claude version under `c
 
 ## Install
 
+Copy or link the skill folder into each agent's skills folder:
+
 ```bash
 # Claude Code
-cp -r claude/quality-vibe-review ~/.claude/skills/
+cp -r quality-vibe-review ~/.claude/skills/
 
 # Codex
-cp -r codex/quality-vibe-review ~/.codex/skills/
+cp -r quality-vibe-review ~/.codex/skills/
 ```
 
-Then run `/quality-vibe-review <PR number or URL>` (Claude) or ask Codex to use `$quality-vibe-review`. Add `--dry-run` to build and audit the review without posting it.
+To edit one copy for every agent, link instead of copying. On Windows, a directory junction needs no admin rights:
+
+```bat
+mklink /J "%USERPROFILE%\.claude\skills\quality-vibe-review" "<clone>\quality-vibe-review"
+mklink /J "%USERPROFILE%\.codex\skills\quality-vibe-review" "<clone>\quality-vibe-review"
+```
+
+On macOS or Linux, use `ln -s <clone>/quality-vibe-review ~/.claude/skills/` and the same for `~/.codex/skills/`.
+
+Then run `/quality-vibe-review <PR number or URL>` in Claude Code, or ask Codex to use `$quality-vibe-review`. Add `--dry-run` to build and audit the review without posting it.
 
 ## Requirements
 
 - `gh`, authenticated with access to the repo you're reviewing
 - `git` and `python` on the path
-- The skill keeps clones under `G:/.tmp/pr-reviews` and worktrees under `G:/.worktrees`. Change those paths in `SKILL.md` to suit your machine.
+- Clones, worktrees and review files go in the temp and worktree folders your agent instructions name, or the system temp folder if they don't name one.

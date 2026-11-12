@@ -2,7 +2,20 @@
 
 **Question:** Does the change put responsibilities in the right layers and components, at a size proportional to the problem?
 
-Read `~/.claude/skills/architecture-review/SKILL.md` for the full checklist, but score only the system-level items below.
+Find the simplest shape that meets the current requirements and keeps the invariants the code needs. Judge the actual implementation and its call flow, not hypothetical future requirements or a preferred pattern.
+
+## Signals worth a closer look
+
+These are signals, not findings. A finding still needs a concrete maintenance, readability or correctness cost.
+
+- A simple operation that crosses several pass-through layers
+- An interface, factory or builder with one meaningful implementation
+- An ordinary change that needs edits across many layers
+- The same state held in more than one representation
+- Event-driven code for what is really a direct request and response
+- Permanent fallback or compatibility paths
+- Several mechanisms solving the same problem
+- Vague `Manager`, `Service` or `Coordinator` classes with broad reach
 
 ## Look for
 

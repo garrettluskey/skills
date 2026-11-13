@@ -21,14 +21,18 @@ Agents can review code statically far more cheaply than a team can maintain test
 - Snapshot or golden tests nobody will read
 - Tests that would still pass if the code under test were deleted
 - Tests where the mocks are the test
+- Anything the repo's own testing rules call low value
 
-## Also check
+## Missing tests
 
-- **Missing tests.** New non-trivial logic, or a bug fix, with no test of that behaviour. Score this down and name the test to add.
+A bug fix or new logic with no test, where that test would belong in the High value list. Score this down and name the test to add.
+
+## For tests worth keeping
+
+Decide keep or drop first. Check these only on tests the lists above keep:
+
 - **Assertions.** Specific to the outcome, not `NotNull` or "didn't throw" when a real value can be checked.
-- **Names.** Test names say the behaviour and the expected result.
 - **Flakiness.** Sleeps, real time, real network, or order dependence between tests.
-- **Setup.** Arrange code so long the point of the test gets lost.
 
 List each test to drop as its own item: `path:line: drop <TestName>. <why it's low value>.`
 
@@ -37,3 +41,4 @@ Use N/A only when the PR adds no tests and no testable logic.
 ## Not this category
 
 - Whether the production code can be tested goes to Testability.
+- Test names and long setup go to Readability.

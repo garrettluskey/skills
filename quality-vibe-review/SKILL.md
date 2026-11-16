@@ -198,16 +198,8 @@ old=$(gh api "$R/pulls/<N>/reviews" --paginate \
   --jq ".[] | select(.user.login == \"$me\" and (.body | contains(\"<!-- quality-vibe-review -->\"))) | .id")
 ```
 
-1. **Retire the old reviews.** A submitted review can't be deleted, only its comments and body. For each id in `$old`, delete its inline comments, then mark it superseded. The new body drops the `<!-- quality-vibe-review -->` marker, so the next run doesn't find it again:
-   ```bash
-   for o in $old; do
-     for c in $(gh api "$R/pulls/<N>/reviews/$o/comments" --paginate --jq '.[].id'); do
-       gh api "$R/pulls/comments/$c" --method DELETE
-     done
-     gh api "$R/pulls/<N>/reviews/$o" --method PUT -f body="superseded by the newer quality review"
-   done
-   ```
-   Earlier versions of this skill also posted the scorecard as a separate PR comment with the same marker. If one is still there, delete it with `gh api "$R/issues/comments/<id>" --method DELETE`.
+1. **Resolve old review comments.** For every comment in the previous review, resolve if the author addressed the finding. Update the previous review body to drop the `<!-- quality-vibe-review -->` marker, so the next run doesn't find it again
+
 2. **Post the review** in three calls. The REST review endpoint takes line ranges but not whole-file comments, and GraphQL's `addPullRequestReviewThread` takes those only on a pending review:
    ```bash
    json=<review json>

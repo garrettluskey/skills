@@ -23,16 +23,14 @@ Agents can review code statically far more cheaply than a team can maintain test
 - Tests where the mocks are the test
 - Anything the repo's own testing rules call low value
 
-## Missing tests
-
-A bug fix or new logic with no test, where that test would belong in the High value list. Score this down and name the test to add.
-
 ## For tests worth keeping
 
 Decide keep or drop first. Check these only on tests the lists above keep:
 
+- **Missing tests.** New non-trivial logic, or a bug fix, with no test of that behaviour. Score this down and name the test to add.
 - **Assertions.** Specific to the outcome, not `NotNull` or "didn't throw" when a real value can be checked.
 - **Flakiness.** Sleeps, real time, real network, or order dependence between tests.
+- **Setup.** Arrange code so long the point of the test gets lost.
 
 List each test to drop as its own item: `path:line: drop <TestName>. <why it's low value>.`
 

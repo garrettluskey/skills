@@ -27,9 +27,9 @@ Each item:
 
 No "consider" items without a change. No items about code the PR didn't touch or make worse. Order items by how much they'd raise the score.
 
-## One owner per finding
+## Owner per finding
 
-Several lenses can see the same structural problem. Raise it only in the category that owns it, and leave it out of the others:
+Several lenses can see the same structural problem. Raise it when your lens covers it. The merged comment lists every category that raised it, led by the owner:
 
 | Finding | Owner |
 |---|---|

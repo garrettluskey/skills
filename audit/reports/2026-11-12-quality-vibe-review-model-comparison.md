@@ -4,7 +4,7 @@ Date: 2026-11-12. Skill: `quality-vibe-review`, PR mode, dry run for every confi
 
 ## Setup
 
-- **Subject:** one real pull request in a private C# codebase, about 1,000 added lines across 13 files. It changes a server-authoritative simulation lifecycle (completion, cancellation, disconnect cleanup), adds a client-side continuation flow, and adds about 800 lines of end-to-end tests.
+- **Subject:** [Bannerlord-Coop-Team/BannerlordCoop#4165](https://github.com/Bannerlord-Coop-Team/BannerlordCoop/pull/4165) at commit [`f74ddfd7e`](https://github.com/Bannerlord-Coop-Team/BannerlordCoop/commit/f74ddfd7e6fcba149f5363657d0df5d68cfe455b), diffed against merge base [`65f88333f4`](https://github.com/Bannerlord-Coop-Team/BannerlordCoop/commit/65f88333f47fb023b6afe31a6e9341c8ca3cbfee). The posted baseline is [this review](https://github.com/Bannerlord-Coop-Team/BannerlordCoop/pull/4165#pullrequestreview-5884752533). The C# change is about 1,000 added lines across 13 files. It changes a server-authoritative simulation lifecycle (completion, cancellation, disconnect cleanup), adds a client-side continuation flow, and adds about 800 lines of end-to-end tests.
 - **Reviewers:** one subagent per category, eight per config, all given the same brief, lens file and `references/scoring.md`.
 - **Configs:**
   - Claude Opus 5.5 through Claude Code's subagent tool, at its default effort. This is the baseline, and its audited review was the one posted.

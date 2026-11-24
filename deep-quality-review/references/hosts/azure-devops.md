@@ -102,6 +102,22 @@ with open(path + ".open", "w", encoding="utf-8") as out:
 EOF
 ```
 
+## Earlier review threads
+
+Every comment thread on the PR from any reviewer, whatever its status, with its path and line. System threads (votes, pushes) are left out:
+
+```bash
+ado "$api/threads?$v" | python -c "
+import json,sys
+for t in json.load(sys.stdin)['value']:
+    cs=[c for c in t.get('comments',[]) if c.get('commentType')!='system' and not c.get('isDeleted')]
+    if not cs: continue
+    ctx=t.get('threadContext') or {}
+    print(json.dumps({'status':t.get('status'),'path':ctx.get('filePath'),'line':(ctx.get('rightFileStart') or {}).get('line'),
+        'comments':[{'author':c['author']['displayName'],'content':c.get('content','')} for c in cs]}))
+"
+```
+
 ## Edit a posted review
 
 Edit the fixed comments and the body in the payload, write the resolved copy (see Line links) and list the open threads (see Open threads). Then rewrite each changed body. Each item is matched to its newest open thread by path and first line:
@@ -139,7 +155,7 @@ Azure DevOps has no review object, so the review is a set of threads, each tagge
 
 - each line-range and whole-file comment is its own thread, posted `active`
 - the body is one general thread, posted `closed`, so the scorecard is visible but never counts as an open comment
-- the skill never votes on the PR
+- the skill never votes on the PR, except with `--gate` (see step 3)
 
 When the target branch has a comment-resolution policy, the `active` threads hold completion until someone resolves them, the same as any reviewer's comments. Before posting, tell the user how many active threads the review adds.
 
@@ -204,3 +220,14 @@ done
 If a post fails partway, the loop stops and prints no review URL. List the open threads, delete the comments this run posted, fix the cause and post again.
 
 On success, the review URL is the last line printed, the scorecard thread.
+
+### 3. Vote (`--gate` only)
+
+Once every thread is posted, cast the gate event as your vote: `APPROVE` is `10` (approved) and `REQUEST_CHANGES` is `-5` (waiting for author):
+
+```bash
+me=$(ado "https://dev.azure.com/<org>/_apis/connectionData" | python -c "import json,sys; print(json.load(sys.stdin)['authenticatedUser']['id'])")
+ado -X PUT --data '{"vote": <10 or -5>}' "$api/reviewers/$me?$v" > /dev/null && echo "voted"
+```
+
+If the vote fails, report the error. The threads stay posted, but the review isn't a gate until the vote lands.

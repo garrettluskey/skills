@@ -7,10 +7,10 @@ description: Score a pull request on GitHub or Azure DevOps, or the local change
 
 Arguments (`$ARGUMENTS` or the request) pick the mode:
 
-- **PR mode:** a PR number, PR URL, or `owner/repo#N`. Score the PR and post the result to it as a review comment. `--dry-run` builds and audits the review but doesn't post it.
-- **Local mode:** no PR given. Score the changes in the current repo and write a report. Nothing is posted. `--base <ref>` sets what to compare against.
+- **PR mode:** a PR number, PR URL, or `owner/repo#N`. Score the PR and post the result to it as a review comment. `--gate` makes the review a merge gate that approves or requests changes (see step 6). `--dry-run` builds and audits the review, gate decision included, but doesn't post it.
+- **Local mode:** no PR given. Score the changes in the current repo and write a report. Nothing is posted. `--base <ref>` sets what to compare against. `--gate` has no effect.
 
-This scores code quality. It is not a bug hunt and not a merge gate: it never approves, requests changes or votes, and a PR-mode review is posted as comments only. For correctness bugs or a blocking review, point the user to a different review.
+This scores code quality. It is not a bug hunt. By default it is not a merge gate either: it never approves, requests changes or votes, and a PR-mode review is posted as comments only. Only `--gate` makes it approve or request changes. For correctness bugs, point the user to a different review.
 
 Steps marked **Local mode** replace or skip the PR-mode step they sit in. Everywhere else, in local mode, "the PR" means the local change, "the PR head" means the working tree, and the worktree is the repo root.
 
@@ -26,7 +26,7 @@ Steps marked **Local mode** replace or skip the PR-mode step they sit in. Everyw
   | Codex | `spawn_agent` | `gpt-6.2^-sol` |
   | Anything else | its subagent tool | same, specified, or by memory |
 
-- **Host.** In PR mode, pick the PR's host from the PR URL, or for a bare number or `owner/repo#N` from the URL of the repo's `origin` remote. Read the host's file before step 1. It says how to load, check out, check ranges for and post to a PR there, and what `<slug>`, the repo's name in work-file paths, is:
+- **Host.** In PR mode, pick the PR's host from the PR URL, or for a bare number or `owner/repo#N` from the URL of the repo's `origin` remote. Read the host's file before step 1. It says how to load, check out, check ranges for, list earlier review threads on and post to a PR there, and what `<slug>`, the repo's name in work-file paths, is:
 
   | Host | File |
   |---|---|
@@ -132,6 +132,7 @@ Write the review payload to `<tmp>/pr-reviews/<slug>-<N>-quality-review.json`. T
 - The body ends with **Ran On**: the platform the review ran on (the app or harness, such as Claude Code or Codex), the model the reviewers ran on, and the reasoning effort, as the harness or the user reports them. Write `unknown` for any the harness doesn't report. Each line ends in two spaces, so the three lines render separately.
 - `comments` holds the line-range items on the PR head, with `start_line` left out for a single line. `file_comments` holds the whole-file items.
 - PR-wide items go in the review body as bullets after the table, in the same `**<Category> (<score>)**: ` form. Leave the bullets out when there are none.
+- With `--gate`, the payload also gets `"event": "APPROVE"` or `"event": "REQUEST_CHANGES"`, set by the gate decision in step 6. In the body, replace "This is a quality score, not a merge gate." with "Comments marked follow-up are huge refactors and don't block this PR." Drop that sentence when there are no follow-up items, and drop the whole line for an `APPROVE` with no comments.
 - One point per comment, or one per category in a merged item. Every comment body uses this layout, whatever its length:
 
   ````markdown
@@ -207,27 +208,39 @@ Then act on the ratings. Only comments that end up accurate with no drift get po
 - **Drift:** drop a prefix category whose lens doesn't cover the point, cut the part that belongs to another category, or move the whole comment to that category with its prefix and score. Check the move doesn't duplicate a comment already there.
 - **Low quality:** drop it, or tighten it to one point.
 
+**Check against earlier review asks.** List every earlier review thread and review body on the PR, from any reviewer and resolved ones included, as the host file's **Earlier review threads** says. Compare each surviving item with them. When an item contradicts or reverses an earlier ask, including code or wording the author changed because of one, keep whichever is more valuable:
+
+- If the earlier ask wins, drop the new item and count it as dropped.
+- If the new item wins, keep it and say in one clause of its body that it replaces the earlier ask.
+
 If the drops remove a category's reasons for its score, re-score it with the same rule as step 4.2, and update the table, the overall score and the comment prefixes to match.
 
-Write the ratings and the action taken for each comment to `<tmp>/pr-reviews/<slug>-<N>-quality-audit.md`.
+**Gate decision (`--gate` only).** Sort the surviving items, inline, whole-file and PR-wide, into two groups:
+
+- **Huge refactor:** an item whose fix means restructuring code well beyond what the PR touches, such as splitting or redesigning an existing class or system, or a change across many files. It belongs in a follow-up, not this PR.
+- **Normal item:** everything else.
+
+Set `event` to `APPROVE` when no normal item survives, meaning the PR scores 10/10 with huge refactors left out. Otherwise set it to `REQUEST_CHANGES`. Huge refactors never cause `REQUEST_CHANGES` on their own. Still post them, each body's issue starting with `Follow-up, not blocking:`.
+
+Write the ratings, the action taken for each comment, the earlier-ask decisions and, with `--gate`, each item's group and the event to `<tmp>/pr-reviews/<slug>-<N>-quality-audit.md`.
 
 To audit a review that is already posted, run this step on its comments, then apply the result as the host file's **Edit a posted review** says.
 
 If the head SHA has changed since step 1, re-fetch it and rerun the reviewers before posting. With `--dry-run`, skip step 7: clean up the worktree and branch as in step 8, then print the review and audit file paths.
 
-**Local mode:** audit the report items the same way, then rewrite the report with the result. Write the audit to `<tmp>/local-reviews/<repo>-<branch>-quality-audit.md`, then skip step 7.
+**Local mode:** audit the report items the same way, skipping the earlier-ask check and the gate decision, then rewrite the report with the result. Write the audit to `<tmp>/local-reviews/<repo>-<branch>-quality-audit.md`, then skip step 7.
 
 ## 7. Post
 
 Post as the host file's **Post** says. It covers two steps:
 
 1. **Resolve the earlier quality reviews.** Find this skill's earlier reviews on the PR by the `<!-- deep-quality-review -->` marker. Resolve each old comment whose finding the author addressed. Drop the marker from an old body only once it holds no open findings, so the next run still checks the ones left open.
-2. **Post the review** from the payload, and note the review URL it gives back.
+2. **Post the review** from the payload, and note the review URL it gives back. With `--gate`, the host file's **Post** also records the event. If that fails, report the error. Never fall back to a comment-only review in gate mode.
 
 ## 8. Clean up and report
 
 Remove the worktree (`git -C "$clone" worktree remove --force <path>`) and delete the `pr-<N>` branch. Keep the clone for next time.
 
-Report in chat: the overall score, the score table, the lowest category's top comments, the audit counts (posted, fixed, moved, dropped), and the review URL.
+Report in chat: the overall score, the score table, the lowest category's top comments, the audit counts (posted, fixed, moved, dropped), how many items were dropped for or kept over an earlier ask, and the review URL. With `--gate`, also report the event and how many posted items are follow-up refactors.
 
 **Local mode:** there's nothing to clean up. Report in chat: the overall score, the score table, the lowest category's top items, the audit counts (kept, fixed, moved, dropped), and the absolute path of the report.

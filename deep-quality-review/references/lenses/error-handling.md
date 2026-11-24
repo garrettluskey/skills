@@ -4,6 +4,8 @@
 
 ## Rules
 
+The Acceptable cases below are exceptions to these rules.
+
 - **Only the top level needs try/catch.** The top level is the boundary where a failure can be handled or reported: a request or command entry point, a message or event handler, a thread or task loop, a plugin or game callback. Trace callers to confirm whether a method is one. Flag try/catch in inner or helper code that could let the exception propagate to that boundary.
 - **No nested try/catch.** Flag a try inside another try or catch, and a try in a method that's only ever called from inside another try.
 - **More than two is too many.** Flag a try with more than two catch blocks, or a method with more than two try/catch statements. Each one adds a path the reader has to follow.

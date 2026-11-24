@@ -1,4 +1,4 @@
 interface:
-  display_name: "Quality Vibe Review"
+  display_name: "Deep Quality Review"
   short_description: "Score a PR 1-10 across eight quality categories with parallel Sol reviewers"
-  default_prompt: "Use $quality-vibe-review to score this PR."
+  default_prompt: "Use $deep-quality-review to score this PR."

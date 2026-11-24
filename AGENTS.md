@@ -6,7 +6,7 @@ Agent skills that work in any harness that loads `SKILL.md` skills, including Cl
 
 | Skill | What it does |
 |---|---|
-| `quality-vibe-review` | Scores a GitHub PR, or with no PR given the local changes in the current repo, 1-10 on architecture, readability, maintainability, coupling, cohesion, testability, test quality and error handling. One subagent per category reports a score and what would make it a 10. The findings are audited, then posted to the PR as a single `COMMENT` review with inline comments, or written to a local report. It never approves or blocks. |
+| `deep-quality-review` | Scores a GitHub or Azure DevOps PR, or with no PR given the local changes in the current repo, 1-10 on architecture, readability, maintainability, coupling, cohesion, testability, test quality and error handling. One subagent per category reports a score and what would make it a 10. The findings are audited, then posted to the PR as comments (one `COMMENT` review on GitHub, one thread per comment on Azure DevOps), or written to a local report. It never approves, blocks or votes. |
 
 ## Installing a skill
 
@@ -35,5 +35,6 @@ Update the skills table above when you add, rename or remove a skill.
 
 ## Requirements
 
-- `gh`, authenticated with access to the repos being reviewed
 - `git` and `python` on the path
+- GitHub PRs: `gh`, authenticated with access to the repos being reviewed
+- Azure DevOps PRs: `curl`, and a token in `ADO_TOKEN` or from `git credential fill`. Posting needs Code (read and write) scope.

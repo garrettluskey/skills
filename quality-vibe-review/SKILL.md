@@ -7,10 +7,10 @@ description: Score a GitHub PR, or the local changes in the current repo, on mul
 
 Arguments (`$ARGUMENTS` or the request) pick the mode:
 
-- **PR mode:** a PR number, PR URL, or `owner/repo#N`. Score the PR and post the result to it as a review. `--dry-run` builds and audits the review but doesn't post it.
-- **Local mode:** no PR given. Score the changes in the current repo and write a report. Nothing is posted. `--base <ref>` sets what to compare against.
+- **PR mode:** a PR number, PR URL, or `owner/repo#N`. Score the PR and post the result to it as a review. `--gate` turns the review into a merge gate that posts `APPROVE` or `REQUEST_CHANGES` instead of `COMMENT`. `--dry-run` builds and audits the review (including the gate event when `--gate` is set) but doesn't post it.
+- **Local mode:** no PR given. Score the changes in the current repo and write a report. Nothing is posted. `--base <ref>` sets what to compare against. `--gate` has no effect in local mode.
 
-This scores code quality. It is not a bug hunt and not a merge gate: it never approves or requests changes, so a PR-mode review is always posted as `COMMENT`. For correctness bugs or a blocking review, point the user to a different review.
+This scores code quality. It is not a bug hunt. By default it is not a merge gate either: it never approves or requests changes, and posts PR-mode reviews as `COMMENT` unless `--gate` is given. For correctness bugs, point the user to a different review.
 
 Steps marked **Local mode** replace or skip the PR-mode step they sit in. Everywhere else, in local mode, "the PR" means the local change, "the PR head" means the working tree, and the worktree is the repo root.
 
@@ -123,8 +123,9 @@ Write the review payload to `<tmp>/pr-reviews/<owner>__<repo>-<N>-quality-review
 ```
 
 - The table lists the categories in the table order from step 3. Its summaries describe only what the posted comments support, so update a summary when the audit drops the comment it was based on.
-- `comments` holds the line-range items, with `start_line`/`start_side` left out for a single line. `file_comments` holds the whole-file items. It isn't part of GitHub's payload: step 7 strips it before posting and adds each one through GraphQL. Leave out `event`, so the review is created pending and the file comments can join it before it's submitted.
+- `comments` holds the line-range items, with `start_line`/`start_side` left out for a single line. `file_comments` holds the whole-file items. Neither `file_comments` nor `event` is sent when creating the pending review: step 7 strips them before posting so the file comments can join the pending review before it's submitted. Leave `event` out here; in `--gate` mode, step 6 sets it.
 - PR-wide items go in the review body as bullets after the table, in the same `**<Category> (<score>)**: ` form. Leave the bullets out when there are none.
+- In `--gate` mode, replace the line `Each inline comment is one change that raises its category toward a 10. This is a quality score, not a merge gate.` with `Each inline comment is one change that raises its category toward a 10. Comments marked follow-up are huge refactors and don't block this PR.` Drop that second sentence when there are no follow-up items, and drop the whole line for an `APPROVE` with no comments.
 - One point per comment. Each body starts with `**<Category> (<score>)**: `, or for a merged item every category, owner first: `**Coupling (7) · Cohesion (7)**: `.
 - Order the comments by their lowest category score, lowest first, then by impact within a category. Only categories below 10 get comments.
 - Write every comment and the body like a maintainer, not a bot: after the prefix, state the problem, why it matters, and what to do, in that order, in plain full sentences. Add a short code block when the fix is clearer as code than as prose. No hedging ("might possibly", "consider perhaps"), no AI tells ("I verified that", "Great work on"), no em dashes, no first person, no emoji. Don't name the agents or lenses. Don't claim history or past breakage you haven't checked. Don't repeat the `path:line` the comment already sits on. Cite other lines as `File.cs:NNN`.
@@ -177,15 +178,44 @@ Then act on the ratings. Only comments that end up accurate with no drift get po
 - **Drift:** drop a prefix category whose lens doesn't cover the point, cut the part that belongs to another category, or move the whole comment to that category with its prefix and score. Check the move doesn't duplicate a comment already there.
 - **Low quality:** drop it, or tighten it to one point.
 
+**Reconcile with earlier review asks (PR mode).** After acting on the ratings, fetch all earlier review threads (resolved included) and review bodies on the PR, from any reviewer (local mode skips this check):
+
+```bash
+gh api graphql --paginate -f owner='<owner>' -f name='<repo>' -F number=<N> -f query='
+  query($owner:String!,$name:String!,$number:Int!,$endCursor:String){
+    repository(owner:$owner,name:$name){
+      pullRequest(number:$number){
+        reviewThreads(first:100,after:$endCursor){
+          pageInfo{hasNextPage endCursor}
+          nodes{isResolved path line comments(first:100){nodes{author{login} body}}}
+        }
+      }
+    }
+  }'
+gh api repos/<owner>/<repo>/pulls/<N>/reviews --paginate --jq '.[] | select(.body != "") | {user: .user.login, state, body}'
+```
+
+Compare every surviving item (inline comments, file comments, PR-wide bullets) against those earlier reviews and threads. When an item contradicts or reverses an earlier ask, including code or wording the author changed because of an earlier ask, keep whichever is more valuable:
+
+- If the earlier ask wins, drop the new item and count it as dropped.
+- If the new item wins, keep it and say in one clause in its body that it replaces the earlier ask.
+
 If the drops remove a category's reasons for its score, re-score it with the same rule as step 4.2, and update the table, the overall score and the comment prefixes to match.
 
-Write the ratings and the action taken for each comment to `<tmp>/pr-reviews/<owner>__<repo>-<N>-quality-audit.md`.
+Write the ratings, any earlier-ask decisions, and the action taken for each comment to `<tmp>/pr-reviews/<owner>__<repo>-<N>-quality-audit.md`.
+
+**Gate decision (`--gate`, PR mode).** `--gate` has no effect in local mode. After the audit above, sort the surviving items into two groups:
+
+- **Huge refactor:** an item whose fix means restructuring code well beyond what the PR touches, such as splitting or redesigning an existing class or system, or a change across many files. It belongs in a follow-up, not this PR.
+- **Normal item:** everything else.
+
+Set `event` in the review JSON to `APPROVE` when no normal item survives (the PR scores 10/10 with huge refactors left out). Otherwise set `event` to `REQUEST_CHANGES`. Huge refactors never cause `REQUEST_CHANGES` on their own. Still post them, each body starting with `Follow-up, not blocking:` right after its category prefix. Update the review body's footer line per step 5, and record the gate grouping and `event` in the audit file.
 
 To audit a review that is already posted, run this step on its comments. Then apply the result with `PATCH repos/<owner>/<repo>/pulls/comments/<id>` for fixed comments, `DELETE` on the same URL for dropped ones, and `PUT repos/<owner>/<repo>/pulls/<N>/reviews/<review id>` for the body. A posted comment can't be moved to another line.
 
-If the head SHA has changed since step 1, re-fetch it and rerun the reviewers before posting. With `--dry-run`, skip step 7: clean up the worktree and branch as in step 8, then print the review and audit file paths.
+If the head SHA has changed since step 1, re-fetch it and rerun the reviewers before posting. With `--dry-run`, skip step 7: clean up the worktree and branch as in step 8, then print the review and audit file paths (with `--gate`, the review JSON includes the gate `event` but isn't posted).
 
-**Local mode:** audit the report items the same way, then rewrite the report with the result. Write the audit to `<tmp>/local-reviews/<repo>-<branch>-quality-audit.md`, then skip step 7.
+**Local mode:** audit the report items the same way, skip the earlier-ask check and gate decision, then rewrite the report with the result. Write the audit to `<tmp>/local-reviews/<repo>-<branch>-quality-audit.md`, then skip step 7.
 
 ## 7. Post
 
@@ -204,26 +234,26 @@ old=$(gh api "$R/pulls/<N>/reviews" --paginate \
    ```bash
    json=<review json>
    # Create the pending review with the line-range comments.
-   python -c "import json,sys; d=json.load(open(sys.argv[1],encoding='utf-8')); d.pop('file_comments',None); json.dump(d,open(sys.argv[1]+'.post','w',encoding='utf-8'))" "$json"
+   python -c "import json,sys; d=json.load(open(sys.argv[1],encoding='utf-8')); d.pop('file_comments',None); d.pop('event',None); json.dump(d,open(sys.argv[1]+'.post','w',encoding='utf-8'))" "$json"
    read rid node < <(gh api "$R/pulls/<N>/reviews" --method POST --input "$json.post" --jq '"\(.id) \(.node_id)"')
-   # Add each whole-file comment, then submit as COMMENT with the body.
+   # Add each whole-file comment, then submit with the event (COMMENT by default, or the gate event) and body.
    python -c "
    import json,sys
    d=json.load(open(sys.argv[1],encoding='utf-8'))
    q='mutation(\$r:ID!,\$p:String!,\$b:String!){addPullRequestReviewThread(input:{pullRequestReviewId:\$r,path:\$p,body:\$b,subjectType:FILE}){thread{id}}}'
    for i,c in enumerate(d.get('file_comments',[])):
        json.dump({'query':q,'variables':{'r':sys.argv[2],'p':c['path'],'b':c['body']}},open(f'{sys.argv[1]}.file{i}','w',encoding='utf-8'))
-   json.dump({'event':'COMMENT','body':d['body']},open(sys.argv[1]+'.submit','w',encoding='utf-8'))
+   json.dump({'event':d.get('event') or 'COMMENT','body':d['body']},open(sys.argv[1]+'.submit','w',encoding='utf-8'))
    " "$json" "$node"
    for f in "$json".file*; do [ -e "$f" ] && gh api graphql --input "$f" --jq .data.addPullRequestReviewThread.thread.id; done
    gh api "$R/pulls/<N>/reviews/$rid/events" --method POST --input "$json.submit" --jq .html_url
    ```
-   If the first call fails with a 422 on a range, fix the range (step 4.4) and post again. If a later call fails, delete the pending review (`gh api "$R/pulls/<N>/reviews/$rid" --method DELETE`) before retrying, because GitHub allows one pending review per user per PR.
+   If the first call fails with a 422 on a range, fix the range (step 4.4) and post again. If a later call fails, delete the pending review (`gh api "$R/pulls/<N>/reviews/$rid" --method DELETE`) before retrying, because GitHub allows one pending review per user per PR. In `--gate` mode, `.submit` must use `APPROVE` or `REQUEST_CHANGES`, never `COMMENT`; if the submit fails, delete the pending review and report the error instead of falling back to `COMMENT`.
 
 ## 8. Clean up and report
 
 Remove the worktree (`git -C "$clone" worktree remove --force <path>`) and delete the `pr-<N>` branch. Keep the clone for next time.
 
-Report in chat: the overall score, the score table, the lowest category's top comments, the audit counts (posted, fixed, moved, dropped), and the review URL.
+Report in chat: the overall score, the score table, the lowest category's top comments, the audit counts (posted, fixed, moved, dropped, plus how many were dropped for or kept over an earlier ask), and the review URL. In `--gate` mode, also report the review event (`APPROVE` or `REQUEST_CHANGES`) and how many posted items are follow-up refactors.
 
 **Local mode:** there's nothing to clean up. Report in chat: the overall score, the score table, the lowest category's top items, the audit counts (kept, fixed, moved, dropped), and the absolute path of the report.

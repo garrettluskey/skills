@@ -39,4 +39,3 @@ Use N/A only when the PR adds no tests and no testable logic.
 ## Not this category
 
 - Whether the production code can be tested goes to Testability.
-- Test names and long setup go to Readability.

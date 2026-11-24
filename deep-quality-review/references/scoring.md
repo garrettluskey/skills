@@ -34,7 +34,7 @@ Several lenses can see the same structural problem. Raise it when your lens cove
 | Finding | Owner |
 |---|---|
 | Split a class or file because it does two jobs, including "it needs many dependencies because it does two jobs" | Cohesion |
-| Code in the wrong layer or component, an event or callback where a direct call would do, an abstraction that doesn't earn its keep | Architecture |
+| Code in the wrong layer or component, an event or callback where a direct call would do, an abstraction that doesn't earn its keep, more than one source of truth for the same state | Architecture |
 | A hidden dependency, an order dependence between components, reaching into another component's internals | Coupling |
 | The same rule or logic written in more than one place | Maintainability |
 | Pure decision logic that should be pulled away from side effects so it can be called in a test | Testability |

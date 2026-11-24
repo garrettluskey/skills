@@ -10,7 +10,7 @@ Arguments (`$ARGUMENTS` or the request) pick the mode:
 - **PR mode:** a PR number, PR URL, or `owner/repo#N`. Score the PR and post the result to it as a review. `--gate` turns the review into a merge gate that posts `APPROVE` or `REQUEST_CHANGES` instead of `COMMENT`. `--dry-run` builds and audits the review (including the gate event when `--gate` is set) but doesn't post it.
 - **Local mode:** no PR given. Score the changes in the current repo and write a report. Nothing is posted. `--base <ref>` sets what to compare against. `--gate` has no effect in local mode.
 
-This scores code quality. It is not a bug hunt. By default it is not a merge gate either: it never approves or requests changes, and posts PR-mode reviews as `COMMENT` unless `--gate` is given. For correctness bugs, point the user to a different review.
+This scores code quality. It is not a bug hunt. By default it is not a merge gate either: a PR-mode review is posted as `COMMENT`. Only `--gate` makes it approve or request changes. For correctness bugs, point the user to a different review.
 
 Steps marked **Local mode** replace or skip the PR-mode step they sit in. Everywhere else, in local mode, "the PR" means the local change, "the PR head" means the working tree, and the worktree is the repo root.
 
